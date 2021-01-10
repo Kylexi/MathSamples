@@ -1,5 +1,8 @@
 import numpy as np
 from scipy.stats import norm
+from sklearn.naive_bayes import GaussianNB
+
+np.random.seed(0)
 
 def generate_data(N, params):
 	mu_one, sigma_one, mu_two, sigma_two = params
@@ -14,13 +17,13 @@ def generate_data(N, params):
 	return data
 
 # Generate training data to work with
-N = 500
+N = 500000
 
-mu_one = [0, 1]
-sigma_one = [[1, 0], [0, 1]]
+mu_one = [-1, 3]
+sigma_one = [[3, 0], [0, 1]]
 
 mu_two = [1, 2]
-sigma_two = [[2, 0], [0, 2]]
+sigma_two = [[4, 0], [0, 2]]
 
 params = (mu_one, sigma_one, mu_two, sigma_two)
 data = generate_data(N, params)
@@ -44,19 +47,23 @@ s22 = ((data[N:,1] - m22)**2).sum()/(N-1)
 test_data = generate_data(round(N/10), params)
 
 def predict(data, estimates):
-	m1, s1, m2, s2, m11, m22 = estimates
+	m1, s1, m2, s2, m11, s11, m22, s22 = estimates
 	# Ignoring the prior distribution for now since we have balanced data
-	prediction = []
-	for i in range(data.shape[0]):
-		res = norm(m2,s2).pdf(data[i,0]) * norm(m22,s2).pdf(data[i,1])/ (
-			norm(m1,s1).pdf(data[i,0]) * norm(m11,s1).pdf(data[i,1]) + norm(m2,s2).pdf(data[i,0]) * norm(m22,s2).pdf(data[i,1])
+	res = norm(m2,s2).pdf(data[:,0]) * norm(m22,s22).pdf(data[:,1])/ (
+			norm(m1,s1).pdf(data[:,0]) * norm(m11,s11).pdf(data[:,1]) + 
+			norm(m2,s2).pdf(data[:,0]) * norm(m22,s22).pdf(data[:,1])
 			)
-		prediction.append(round(res))
-	return prediction
+	return np.round(res)
 
-pred = predict(test_data, (m1, s1, m2, s2, m11, m22))
+pred = predict(test_data, (m1, s1, m2, s2, m11, s11, m22, s22))
 truth_and_prediction = np.c_[pred, test_data[:,2]]
 res = truth_and_prediction
 
 misclass = np.abs(res[:,0] - res[:,1]).sum() / res.shape[0]
 print(f"Misclassification error over {round(N/10)} test data points: {misclass}")
+
+gnb = GaussianNB()
+gnb.fit(data[:, 0:2], data[:, 2])
+y_pred = gnb.predict(test_data[:, 0:2])
+misclass = (y_pred != test_data[:, 2]).sum() / res.shape[0]
+print(f"Misclassification error over {round(N/10)} test data points: {misclass} (sklearn)")
